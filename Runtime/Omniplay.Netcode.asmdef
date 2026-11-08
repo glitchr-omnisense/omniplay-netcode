@@ -1,0 +1,25 @@
+{
+    "name": "Omniplay.Netcode",
+    "rootNamespace": "Omniplay.Netcode",
+    "references": [
+        "Omniplay",
+        "Unity.Netcode.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "OMNIPLAY_NETCODE"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.netcode.gameobjects",
+            "expression": "1.12.0",
+            "define": "OMNIPLAY_NETCODE"
+        }
+    ],
+    "noEngineReferences": false
+}

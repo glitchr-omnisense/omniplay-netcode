@@ -1,0 +1,21 @@
+{
+  "name": "io.omniplay.netcode",
+  "version": "0.1.0",
+  "displayName": "Omniplay for Netcode for GameObjects",
+  "description": "omnisense/omniplay inside a Unity server running Netcode for GameObjects: the connection approval that lets a client in when the ticket in its ConnectionData holds for this server (once), and the server's heartbeat to the application. Runs on omniplay/dotnet.",
+  "unity": "2021.3",
+  "dependencies": {
+    "io.omniplay.dotnet": "0.1.0",
+    "com.unity.netcode.gameobjects": "1.12.0"
+  },
+  "author": {
+    "name": "Marco Meyer",
+    "email": "marco.meyer@glitchr.io"
+  },
+  "license": "MIT",
+  "keywords": ["omniplay", "netcode", "multiplayer", "connection-approval", "ticket", "heartbeat"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glitchr-omnisense/omniplay-netcode.git"
+  }
+}
