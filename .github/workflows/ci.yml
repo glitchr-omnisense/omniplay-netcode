@@ -1,0 +1,79 @@
+# The package's CI. No Unity editor runs here (none on GitHub's runners without a licence): the UPM
+# package is checked statically - the manifest, the changelog's section for its version, every asset's
+# .meta and unique GUIDs, the asmdefs - and its C# compiled, warnings as errors, with omniplay/dotnet's
+# sources (omniplay-dotnet's branch 1.x) and the sample's, against stubs of UnityEngine and of the
+# netcode library (Tests~/Compile/Stubs, signatures copied from the real ones); the sample's first
+# call is then run and its output compared, and the README checked to show it as it is.
+name: ci
+
+on:
+  push:
+    branches: ['1.x']
+  pull_request:
+  workflow_dispatch:
+  # release.yml runs this CI on a tag before the release.
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DOTNET_NOLOGO: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: glitchr-omnisense/omniplay-dotnet
+          ref: 1.x
+          path: .omniplay-dotnet
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: The UPM package, statically
+        run: |
+          set -eu
+          failed=0
+          fail() { echo "::error::$*"; failed=1; }
+          name=$(jq -r .name package.json); version=$(jq -r .version package.json)
+          [ "$(jq -r .unity package.json)" != null ] || fail "package.json names no unity version."
+          printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || fail "package.json's version $version is not semver."
+          grep -qE "^## \[$version\]" CHANGELOG.md || fail "CHANGELOG.md has no section for $version."
+          for path in $(jq -r '.samples[]?.path' package.json); do [ -d "$path" ] || fail "sample path $path missing"; done
+          # The assets Unity imports: everything outside dot-folders and folders ending in ~.
+          assets=$(git ls-files | grep -v -E '^\.|(^|/)[^/]*~/')
+          for f in $(printf '%s\n' "$assets" | grep -v '\.meta$'); do [ -f "$f.meta" ] || fail "$f has no .meta"; done
+          for d in $(printf '%s\n' "$assets" | grep / | sed 's:/[^/]*$::' | sort -u); do [ -f "$d.meta" ] || fail "$d/ has no .meta"; done
+          for m in $(printf '%s\n' "$assets" | grep '\.meta$'); do [ -e "${m%.meta}" ] || fail "$m has nothing to describe"; done
+          dup=$(printf '%s\n' "$assets" | grep '\.meta$' | xargs sed -n 's/^guid: //p' | sort | uniq -d)
+          [ -z "$dup" ] || fail "GUIDs used twice: $dup"
+          # The asmdefs: valid JSON, names unique, references to this package's own or to known assemblies.
+          known="Omniplay Mirror Unity.Netcode.Runtime"
+          names=$(git ls-files '*.asmdef' | xargs -n1 jq -r .name)
+          [ -z "$(printf '%s\n' "$names" | sort | uniq -d)" ] || fail "asmdef names used twice"
+          for a in $(git ls-files '*.asmdef'); do
+            for r in $(jq -r '.references[]' "$a"); do
+              case " $known $names " in *" $r "*) ;; *) fail "$a references $r, unknown";; esac
+            done
+          done
+          echo "$name $version: $(printf '%s\n' "$assets" | grep -c .) assets checked"
+          exit $failed
+
+      - name: Compiled against stubs, the first call run
+        working-directory: Tests~/Compile
+        run: |
+          set -eu
+          dotnet build Compile.csproj -c Release
+          out=$(dotnet run --project Compile.csproj --no-build -c Release)
+          printf '%s\n' "$out"
+          [ "$out" = "$(printf 'player-42\nTrue\nTrue')" ] || { echo "::error::The first call printed something else."; exit 1; }
+
+      - name: The README shows the first call as it is
+        run: |
+          python3 -I -c 'import glob, sys; e = open(glob.glob("Samples~/*/*FirstCall.cs")[0]).read(); sys.exit(0 if "```csharp\n" + e + "```" in open("README.md").read() else 1)' \
+            || { echo "::error::The README does not show the sample's first call as it is."; exit 1; }

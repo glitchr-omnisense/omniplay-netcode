@@ -1,0 +1,4 @@
+# What npm pack leaves out of the UPM tarball the release attaches.
+/.github/
+/Tests~/
+/.omniplay-dotnet/

@@ -26,7 +26,7 @@ transport.SetConnectionData(host, port);   // UnityTransport; seat.address is "h
 NetworkManager.Singleton.StartClient();
 ```
 
-## Installing
+## Install and a first call
 
 It depends on `com.unity.netcode.gameobjects` (1.12.0 or later: the approval API is the same up to
 3.2.1) and on omniplay/dotnet (`io.omniplay.dotnet`, the assembly `Omniplay`). Netcode comes from
@@ -35,23 +35,62 @@ package, the first satisfying the second's dependency (Unity resolves no Git dep
 by itself):
 
 ```json
-"io.omniplay.dotnet": "https://github.com/glitchr-omnisense/omniplay-dotnet.git#1.x",
-"io.omniplay.netcode": "https://github.com/glitchr-omnisense/omniplay-netcode.git#1.x"
+"io.omniplay.dotnet": "https://github.com/glitchr-omnisense/omniplay-dotnet.git#v1.0.0",
+"io.omniplay.netcode": "https://github.com/glitchr-omnisense/omniplay-netcode.git#v1.0.0"
 ```
 
 Its assembly `Omniplay.Netcode` also compiles only under `OMNIPLAY_NETCODE`, which its asmdef's
 version define sets when `com.unity.netcode.gameobjects` 1.12.0 or later is installed.
 
+`#v1.0.0` pins the release (`#1.x` follows the branch); Unity 2021.3 or later. The package's sample
+(Package Manager, the package, Samples, **Server and client**) holds the first call below and a
+bootstrap that starts the server in batch mode or joins one. The first call needs no server, no
+account, no key and no network: a ticket the PHP application signed (omniplay's `Tickets`, a
+recorded exchange from its vectors) checked by omniplay/dotnet's `TicketGate`, which the package
+lets players in through. Put it on any object and press Play:
+
+```csharp
+using Omniplay;
+using UnityEngine;
+
+public sealed class OmniplayNetcodeFirstCall : MonoBehaviour
+{
+    // A ticket the PHP application signed (omnisense/omniplay's Tickets, recorded in its vectors):
+    const string FromPhp = "eyJzdWIiOiJwbGF5ZXItNDIiLCJuYW1lIjoiQWRhIiwicm9vbSI6ImV1LTEtYTNmOSIsImV4cCI6NDEwMjQ0NDgwMH0.0bb9f63e3f6c9d7237c18855738470bae0f54410d4d1177ee87cc65c4608a57c";
+    const string Secret = "s3cr3t-shared-with-the-servers";   // OMNIPLAY_TICKET_SECRET on a real server
+
+    void Start()
+    {
+        var gate = new TicketGate(Secret, "eu-1-a3f9");   // what lets players in on the server eu-1-a3f9
+        Debug.Log(gate.Admit(FromPhp)?.Player);           // player-42: let in
+        Debug.Log(gate.Admit(FromPhp) == null);           // True: one ticket, one connection
+        Debug.Log(new TicketGate(Secret, "eu-1-b7c2").Admit(FromPhp) == null);   // True: another server refuses it
+    }
+}
+```
+
 ## Verified, and not
 
-- Verified (2026-11-08): the package's sources compiled with omniplay/dotnet's, against Unity
-  6000.3's `UnityEngine.CoreModule.dll` and a stub of Netcode whose signatures are copied from
-  com.unity.netcode.gameobjects 1.12.0 and 3.2.1 (`NetworkManager`'s approval callback, request and
-  response, `NetworkConfig`; the same in both), netstandard2.1, warnings as errors: 0 errors, 0
-  warnings. The ticket's checks are omniplay/dotnet's, tested on omniplay's vectors (`TicketGate`,
-  36 tests).
-- Not verified: inside a Unity editor (the package was not imported), a client connecting to a
-  server.
+No Unity editor was opened for this release: the package is verified statically and by compiling it.
+
+- Verified (2026-11-13, .NET SDK 10.0.404 in a one-off container): the package's sources, its
+  sample's and omniplay/dotnet 1.0.0's compiled together, netstandard2.1, warnings as errors - 0
+  errors, 0 warnings - against Unity 6000.3's `UnityEngine.CoreModule.dll` and a stub of Netcode for GameObjects
+  whose signatures are copied from com.unity.netcode.gameobjects 1.12.0 (the approval API the same in 3.2.1: `NetworkManager`'s callback, request and response, `NetworkConfig`, `UnityTransport.SetConnectionData`) (`Tests~/Compile`); compiled again against the
+  UnityEngine stub, the sample's first call run: `player-42`, `True`, `True`. The manifest, the
+  changelog's section, every asset's `.meta` and unique GUIDs, the asmdefs' references: checked.
+  The ticket's checks are omniplay/dotnet's, tested on omniplay's vectors (38 tests).
+- The CI does the same on GitHub's runners, against the UnityEngine stub only (no Unity there).
+- Not verified: inside a Unity editor (the package was not imported, the sample not run in Play
+  mode), a client connecting to a server, the heartbeat answered by an application running
+  omniplay's `Heartbeats`.
+
+## Releasing
+
+A pushed tag `vX.Y.Z` equal to `package.json`'s version runs `.github/workflows/release.yml`: the CI
+on the tag, the changelog's section checked, the GitHub release with the UPM tarball (`npm pack`).
+Projects install the tag by Git URL (`#vX.Y.Z`). Tag omniplay/dotnet's same version first: this
+package depends on it.
 
 ## Licence
 
