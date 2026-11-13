@@ -54,8 +54,8 @@ jobs:
           [ -z "$dup" ] || fail "GUIDs used twice: $dup"
           # The asmdefs: valid JSON, names unique, references to this package's own or to known assemblies.
           known="Omniplay Mirror Unity.Netcode.Runtime"
-          names=$(git ls-files '*.asmdef' | xargs -n1 jq -r .name)
-          [ -z "$(printf '%s\n' "$names" | sort | uniq -d)" ] || fail "asmdef names used twice"
+          names=$(git ls-files '*.asmdef' | xargs -n1 jq -r .name | tr '\n' ' ')
+          [ -z "$(printf '%s\n' $names | sort | uniq -d)" ] || fail "asmdef names used twice"
           for a in $(git ls-files '*.asmdef'); do
             for r in $(jq -r '.references[]' "$a"); do
               case " $known $names " in *" $r "*) ;; *) fail "$a references $r, unknown";; esac
